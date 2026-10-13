@@ -1,0 +1,30 @@
+After order 1 (BUY 10 @ 100):
+Bids: 100:[10]
+Asks: (empty)
+Trades: none
+
+After order 2 (BUY 5@ 101):
+bids:101:[5], 100:[10]
+asks : (empty)
+trades : none
+
+after order 3 (sell 8 @ 103)
+bids :  101:[5], 100:[10]
+asks :  103:[8]
+trades: 0
+
+after order 4 (sell 4 @ 102):
+bids :  101:[5], 100:[10]
+asks :  103:[8], 102:[4]
+trades : 0
+
+after order 5 (sell 6 @ 101):
+bids: 100:[10]
+asks: 101:[1], 102:[4], 103:[8]
+trades: 1
+
+after order 6(buy 3 @ 103)
+bids:100:[10]
+asks:  102:[2], 103:[8]
+trades:3
+
