@@ -6,4 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_compile_options(-Wall -Wextra)
 
+# Core library: everything except main() and tests
+add_library(book src/order_book.cpp)
+target_include_directories(book PUBLIC include)
+
 add_executable(engine src/main.cpp)
+target_link_libraries(engine PRIVATE book)
+
+enable_testing()
+add_executable(test_day3 tests/test_day3.cpp)
+target_link_libraries(test_day3 PRIVATE book)
+add_test(NAME day3 COMMAND test_day3)
