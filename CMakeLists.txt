@@ -14,6 +14,11 @@ add_executable(engine src/main.cpp)
 target_link_libraries(engine PRIVATE book)
 
 enable_testing()
+
 add_executable(test_day3 tests/test_day3.cpp)
 target_link_libraries(test_day3 PRIVATE book)
 add_test(NAME day3 COMMAND test_day3)
+
+add_executable(test_day4 tests/test_day4.cpp)
+target_link_libraries(test_day4 PRIVATE book)
+add_test(NAME day4 COMMAND test_day4)

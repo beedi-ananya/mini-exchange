@@ -1,12 +1,12 @@
 #include "order_book.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <iterator>
 
 namespace {
 
 // Prints one price level: "  102 : [#4 x4] [#6 x2]"
-// Template so we don't need access to the private Level alias.
 template <typename LevelT>
 void print_level(Price price, const LevelT& level) {
     std::cout << "  " << price << " : ";
@@ -17,6 +17,19 @@ void print_level(Price price, const LevelT& level) {
         std::cout << "[#" << o.id << " x" << o.qty << "]";
     }
     std::cout << '\n';
+}
+
+// Removes one order from a side's map and deletes the price level if it
+// becomes empty. Works for both bids_ and asks_ (different comparators).
+template <typename SideMap>
+void erase_resting(SideMap& side_map, Price price,
+                   std::list<Order>::iterator it) {
+    auto lvl = side_map.find(price);   // find(), never operator[]
+    assert(lvl != side_map.end() && "index_ pointed at a missing level");
+    lvl->second.erase(it);             // O(1): we hold the exact iterator
+    if (lvl->second.empty()) {
+        side_map.erase(lvl);           // keep invariant: no empty levels
+    }
 }
 
 }  // namespace
@@ -33,11 +46,29 @@ std::vector<Trade> OrderBook::add_limit(Order order) {
     Level& level = (order.side == Side::Buy) ? bids_[order.price]
                                              : asks_[order.price];
 
-    level.push_back(order);                       // join the back of the queue
-    auto it = std::prev(level.end());             // iterator to the element just added
+    level.push_back(order);
+    auto it = std::prev(level.end());
 
     index_.emplace(order.id, Locator{order.side, order.price, it});
     return {};
+}
+
+bool OrderBook::cancel(OrderId id) {
+    auto found = index_.find(id);
+    if (found == index_.end()) {
+        return false;                          // unknown or already gone
+    }
+
+    const Locator loc = found->second;         // COPY before we erase the entry
+
+    if (loc.side == Side::Buy) {
+        erase_resting(bids_, loc.price, loc.it);
+    } else {
+        erase_resting(asks_, loc.price, loc.it);
+    }
+
+    index_.erase(found);                       // loc.it is dead now; drop it
+    return true;
 }
 
 std::optional<Price> OrderBook::best_bid() const {
@@ -54,10 +85,12 @@ std::size_t OrderBook::order_count() const { return index_.size(); }
 std::size_t OrderBook::bid_levels() const  { return bids_.size(); }
 std::size_t OrderBook::ask_levels() const  { return asks_.size(); }
 
+bool OrderBook::contains(OrderId id) const { return index_.count(id) != 0; }
+
 std::vector<OrderId> OrderBook::ids_at(Side side, Price price) const {
     std::vector<OrderId> out;
     if (side == Side::Buy) {
-        auto lvl = bids_.find(price);             // find(), not operator[]
+        auto lvl = bids_.find(price);
         if (lvl != bids_.end()) {
             for (const Order& o : lvl->second) out.push_back(o.id);
         }
@@ -96,3 +129,4 @@ void OrderBook::print_book() const {
 
     std::cout << "============================\n";
 }
+

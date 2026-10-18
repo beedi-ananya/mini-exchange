@@ -25,6 +25,7 @@ public:
  std::size_t order_count() const;
     std::size_t bid_levels() const;
     std::size_t ask_levels() const;
+    bool contains(OrderId id) const;
     std::vector<OrderId> ids_at(Side side, Price price) const;  // queue order
 
 private:
