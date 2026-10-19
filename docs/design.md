@@ -103,3 +103,21 @@ Stop orders, iceberg orders, multiple symbols, persistence.
 
 ## Out of scope for v1
 Stop orders, iceberg orders, multiple symbols, persistence.
+
+## Matching rules (Days 5-6)
+1. An incoming BUY crosses a resting ask when buy.price >= ask.price. An incoming SELL
+   crosses a resting bid when sell.price <= bid.price. Equal prices cross.
+2. Best price matches first. Within a price level, the oldest order matches first.
+3. Every trade executes at the resting order's price.
+4. A large order sweeps levels in price order and stops at its own limit price.
+5. A partially filled resting order keeps its position in the queue.
+6. Any unfilled remainder rests at the incoming order's own limit price.
+7. Fully filled orders are removed from the book and from index_ (their ids can be reused).
+8. Zero-quantity and duplicate-id orders are ignored with no effect on the book.
+9. The book is never crossed after any operation.
+
+## Testing approach
+- Hand-written tests cover each rule above.
+- A model-based test compares the engine with a naive linear-scan engine on random
+  adds and cancels, requiring identical trades and identical books.
+- Property checks: the book is never crossed, and quantity is conserved.
