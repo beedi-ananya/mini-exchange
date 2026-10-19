@@ -27,6 +27,7 @@ public:
     std::size_t ask_levels() const;
     bool contains(OrderId id) const;
     std::vector<OrderId> ids_at(Side side, Price price) const;  // queue order
+    Qty qty_at(Side side, Price price) const;                   // total resting qty at a level
 
 private:
     using Level = std::list<Order>;

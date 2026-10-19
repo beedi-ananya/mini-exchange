@@ -1,5 +1,6 @@
 #include "order_book.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <iterator>
@@ -20,15 +21,52 @@ void print_level(Price price, const LevelT& level) {
 }
 
 // Removes one order from a side's map and deletes the price level if it
-// becomes empty. Works for both bids_ and asks_ (different comparators).
+// becomes empty. Used by cancel().
 template <typename SideMap>
 void erase_resting(SideMap& side_map, Price price,
                    std::list<Order>::iterator it) {
     auto lvl = side_map.find(price);   // find(), never operator[]
     assert(lvl != side_map.end() && "index_ pointed at a missing level");
-    lvl->second.erase(it);             // O(1): we hold the exact iterator
+    lvl->second.erase(it);
     if (lvl->second.empty()) {
-        side_map.erase(lvl);           // keep invariant: no empty levels
+        side_map.erase(lvl);
+    }
+}
+
+// Matches `incoming` against the opposite side `opp` while it crosses.
+// `crosses(level_price)` says whether incoming can trade at that level.
+// Works for both sides (bids and asks are different map types).
+template <typename OppMap, typename IndexMap, typename CrossFn>
+void match_against(OppMap& opp, IndexMap& index, Order& incoming,
+                   CrossFn crosses, std::vector<Trade>& trades) {
+    while (incoming.qty > 0 && !opp.empty()) {
+        auto lvl = opp.begin();                    // best level on that side
+        const Price level_price = lvl->first;
+        if (!crosses(level_price)) break;          // best level doesn't cross, so none will
+
+        auto& queue = lvl->second;
+        while (incoming.qty > 0 && !queue.empty()) {
+            Order& resting = queue.front();        // oldest order = time priority
+            const Qty fill = std::min(incoming.qty, resting.qty);
+
+            // Trade price is the RESTING order's price (the level price).
+            if (incoming.side == Side::Buy) {
+                trades.push_back(Trade{incoming.id, resting.id, level_price, fill});
+            } else {
+                trades.push_back(Trade{resting.id, incoming.id, level_price, fill});
+            }
+
+            incoming.qty -= fill;                  // safe: fill <= both quantities
+            resting.qty  -= fill;
+
+            if (resting.qty == 0) {
+                index.erase(resting.id);           // BEFORE pop_front: resting dies below
+                queue.pop_front();
+            }
+        }
+        if (queue.empty()) {
+            opp.erase(lvl);                        // keep invariant: no empty levels
+        }
     }
 }
 
@@ -42,21 +80,34 @@ std::vector<Trade> OrderBook::add_limit(Order order) {
 
     order.seq = next_seq_++;
 
-    // operator[] is intentional here: we WANT the level created if missing.
-    Level& level = (order.side == Side::Buy) ? bids_[order.price]
-                                             : asks_[order.price];
+    std::vector<Trade> trades;
 
-    level.push_back(order);
-    auto it = std::prev(level.end());
+    if (order.side == Side::Buy) {
+        match_against(asks_, index_, order,
+                      [&order](Price level_price) { return order.price >= level_price; },
+                      trades);
+    } else {
+        match_against(bids_, index_, order,
+                      [&order](Price level_price) { return order.price <= level_price; },
+                      trades);
+    }
 
-    index_.emplace(order.id, Locator{order.side, order.price, it});
-    return {};
+    // Whatever is left rests at the incoming order's own limit price.
+    if (order.qty > 0) {
+        Level& level = (order.side == Side::Buy) ? bids_[order.price]
+                                                 : asks_[order.price];
+        level.push_back(order);
+        auto it = std::prev(level.end());
+        index_.emplace(order.id, Locator{order.side, order.price, it});
+    }
+
+    return trades;
 }
 
 bool OrderBook::cancel(OrderId id) {
     auto found = index_.find(id);
     if (found == index_.end()) {
-        return false;                          // unknown or already gone
+        return false;
     }
 
     const Locator loc = found->second;         // COPY before we erase the entry
@@ -67,7 +118,7 @@ bool OrderBook::cancel(OrderId id) {
         erase_resting(asks_, loc.price, loc.it);
     }
 
-    index_.erase(found);                       // loc.it is dead now; drop it
+    index_.erase(found);
     return true;
 }
 
@@ -103,6 +154,22 @@ std::vector<OrderId> OrderBook::ids_at(Side side, Price price) const {
     return out;
 }
 
+Qty OrderBook::qty_at(Side side, Price price) const {
+    Qty total = 0;
+    if (side == Side::Buy) {
+        auto lvl = bids_.find(price);
+        if (lvl != bids_.end()) {
+            for (const Order& o : lvl->second) total += o.qty;
+        }
+    } else {
+        auto lvl = asks_.find(price);
+        if (lvl != asks_.end()) {
+            for (const Order& o : lvl->second) total += o.qty;
+        }
+    }
+    return total;
+}
+
 void OrderBook::print_book() const {
     std::cout << "======== ORDER BOOK ========\n";
 
@@ -115,7 +182,7 @@ void OrderBook::print_book() const {
     if (best_bid() && best_ask()) {
         Price spread = *best_ask() - *best_bid();
         std::cout << "---- spread: " << spread;
-        if (spread <= 0) std::cout << " (CROSSED: matching not implemented yet)";
+        if (spread <= 0) std::cout << " (CROSSED: this is a BUG after Day 5)";
         std::cout << " ----\n";
     } else {
         std::cout << "----------------------------\n";
@@ -129,4 +196,3 @@ void OrderBook::print_book() const {
 
     std::cout << "============================\n";
 }
-

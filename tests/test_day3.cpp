@@ -75,22 +75,11 @@ static void test_zero_qty_ignored() {
     assert(b.bid_levels() == 0);   // and no empty level was created
 }
 
-static void test_add_returns_no_trades_yet() {
+static void test_non_crossing_returns_no_trades() {
     OrderBook b;
     auto t = b.add_limit(mk(1, Side::Buy, 100, 5));
     assert(t.empty());
-}
-
-// TEMPORARY: documents today's behaviour (no matching).
-// On Day 5 this must be deleted or inverted, because a crossing order will trade.
-static void test_crossed_book_allowed_today() {
-    OrderBook b;
-    b.add_limit(mk(1, Side::Buy, 105, 5));
-    b.add_limit(mk(2, Side::Sell, 100, 5));
-    assert(b.order_count() == 2);
-    assert(*b.best_bid() > *b.best_ask());
-}
-
+} 
 int main() {
     test_empty_book();                 std::cout << "ok empty_book\n";
     test_single_buy_rests();           std::cout << "ok single_buy_rests\n";
@@ -100,7 +89,6 @@ int main() {
     test_levels_are_counted();         std::cout << "ok levels_are_counted\n";
     test_duplicate_id_ignored();       std::cout << "ok duplicate_id_ignored\n";
     test_zero_qty_ignored();           std::cout << "ok zero_qty_ignored\n";
-    test_add_returns_no_trades_yet();  std::cout << "ok add_returns_no_trades_yet\n";
-    test_crossed_book_allowed_today(); std::cout << "ok crossed_book_allowed_today\n";
+    test_non_crossing_returns_no_trades();  std::cout << "ok non_crossing_returns_no_trades\n";    
     std::cout << "All Day 3 tests passed\n";
 }

@@ -124,7 +124,7 @@ static void test_random_add_cancel_matches_model() {
 
     for (int i = 0; i < 2000; ++i) {
         int side = static_cast<int>(rng() % 2);
-        Price price = 90 + static_cast<Price>(rng() % 21);
+        Price price = (side == 0) ? 90 + static_cast<Price>(rng() % 10) : 101 + static_cast<Price>(rng() % 10);
         Qty qty = static_cast<Qty>(1 + rng() % 10);
         OrderId id = next_id++;
         b.add_limit(mk(id, side == 0 ? Side::Buy : Side::Sell, price, qty));

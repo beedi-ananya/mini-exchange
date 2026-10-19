@@ -22,3 +22,7 @@ add_test(NAME day3 COMMAND test_day3)
 add_executable(test_day4 tests/test_day4.cpp)
 target_link_libraries(test_day4 PRIVATE book)
 add_test(NAME day4 COMMAND test_day4)
+
+add_executable(test_day5 tests/test_day5.cpp)
+target_link_libraries(test_day5 PRIVATE book)
+add_test(NAME day5 COMMAND test_day5)
